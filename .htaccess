@@ -1,0 +1,530 @@
+# Конфигурационный файл Apache
+# http://httpd.apache.org/docs/2.4/mod/quickreference.html
+# http://httpd.apache.org/docs/2.4/howto/htaccess.html
+
+# Созданию данного конфига способствовали:
+#   Kroc Camen: http://camendesign.com/.htaccess
+#   http://perishablepress.com/stupid-htaccess-tricks/
+#   .htaccess из CMS MODx: http://modx.com/
+#   Некоторые неизвестные авторы
+
+# ----------------------------------------------------------------------
+# Улучшаем восприятие сайта пользователями IE
+# ----------------------------------------------------------------------
+# Заставляем IE не переходить в режим совместимости в некоторых случаях
+#  https://github.com/rails/rails/commit/123eb25#commitcomment-118920
+
+<IfModule mod_headers.c>
+  # mod_headers не умеет определять тип данных (content-type), но нам нужно отсылать этот заголовок только для определенных типов файлов
+    <FilesMatch "\.(js|css|gif|png|jpe?g|pdf|xml|oga|ogg|m4a|ogv|mp4|m4v|webm|svg|svgz|eot|ttf|otf|woff|ico|webp|appcache|manifest|htc|crx|oex|xpi|safariextz|vcf)$" >
+    Header unset X-UA-Compatible
+  </FilesMatch>
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Кроссдоменный AJAX
+# ----------------------------------------------------------------------
+# Обслуживание кроссдоменных Ajax запросов, по умолчанию отключено.
+# http://enable-cors.org/
+# http://code.google.com/p/html5security/wiki/CrossOriginRequestSecurity
+
+#  <IfModule mod_headers.c>
+#    Header set Access-Control-Allow-Origin "*"
+#  </IfModule>
+
+
+# ----------------------------------------------------------------------
+# Кроссдоменные изображения (CORS-enabled images) (@crossorigin)
+# ----------------------------------------------------------------------
+# Отсылать CORS заголовки, если браузер требует их, для изображений по умолчанию включено.
+# http://developer.mozilla.org/en/CORS_Enabled_Image
+# http://blog.chromium.org/2011/07/using-cross-domain-images-in-webgl-and.html
+# http://hacks.mozilla.org/2011/11/using-cors-to-load-webgl-textures-from-cross-domain-images/
+# wiki.mozilla.org/Security/Reviews/crossoriginAttribute
+
+<IfModule mod_setenvif.c>
+  <IfModule mod_headers.c>
+    # mod_headers, ну почему ты не определяешь Content-Type?!
+    <FilesMatch "\.(gif|png|jpe?g|svg|svgz|ico|webp)$">
+      SetEnvIf Origin ":" IS_CORS
+      Header set Access-Control-Allow-Origin "*" env=IS_CORS
+    </FilesMatch>
+  </IfModule>
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Доступ к веб-шрифтам
+# ----------------------------------------------------------------------
+# Разрешает доступ к веб-шрифтам из всех доменов.
+# В качестве альтернативы, можно добавить домен
+# в белый список, например "subdomain.example.com".
+
+#<IfModule mod_headers.c>
+#  <FilesMatch "\.(ttf|ttc|otf|eot|woff|font.css)$">
+#    Header set Access-Control-Allow-Origin "*"
+#  </FilesMatch>
+#</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Верный MIME тип для всех файлов
+# ----------------------------------------------------------------------
+# Предотвращает MIME-связанные ошибки в Google Chrome при подключении внешних шрифтов.
+# Запрещает просматривать содержимое бинарных файлов (их принудительная загрузка).
+
+# JavaScript
+#   Приведение Javascript к единому типу 
+#   http://tools.ietf.org/html/rfc4329#section-7.2
+AddType application/javascript         js jsonp
+AddType application/json               json
+
+# Аудио
+AddType audio/ogg                      oga ogg
+AddType audio/mp4                      m4a f4a f4b
+
+# Видео
+AddType video/ogg                      ogv
+AddType video/mp4                      mp4 m4v f4v f4p
+AddType video/webm                     webm
+AddType video/x-flv                    flv
+
+# SVG
+#   Требуется для svg шрифтов на iPad
+#   https://twitter.com/FontSquirrel/status/14855840545
+AddType     image/svg+xml              svg svgz
+AddEncoding gzip                       svgz
+
+# Веб-шрифты
+AddType application/vnd.ms-fontobject  eot
+AddType application/x-font-ttf         ttf ttc
+AddType font/opentype                  otf
+AddType application/x-font-woff        woff
+
+# Остальное
+AddType image/x-icon                        ico
+AddType image/webp                          webp
+AddType text/cache-manifest                 appcache manifest
+AddType text/x-component                    htc
+AddType application/xml                     rss atom xml rdf
+AddType application/x-chrome-extension      crx
+AddType application/x-opera-extension       oex
+AddType application/x-xpinstall             xpi
+AddType application/octet-stream            safariextz
+AddType application/x-web-app-manifest+json webapp
+AddType text/x-vcard                        vcf
+AddType application/x-shockwave-flash       swf
+AddType text/vtt                            vtt
+
+
+# ----------------------------------------------------------------------
+# Gzip сжатие
+# ----------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  # Включаем deflate для не стандартных заголовков:
+  # http://developer.yahoo.com/blogs/ydn/posts/2010/12/pushing-beyond-gzipping/
+  <IfModule mod_setenvif.c>
+    <IfModule mod_headers.c>
+      SetEnvIfNoCase ^(Accept-EncodXng|X-cept-Encoding|X{15}|~{15}|-{15})$ ^((gzip|deflate)\s*,?\s*)+|[X~-]{4,13}$ HAVE_Accept-Encoding
+      RequestHeader append Accept-Encoding "gzip,deflate" env=HAVE_Accept-Encoding
+    </IfModule>
+  </IfModule>
+  <IfModule mod_filter.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css \
+    								application/json text/javascript application/javascript application/x-javascript text/x-js text/ecmascript application/ecmascript text/vbscript text/fluffscript \
+    								text/xml application/xml text/x-component \
+    								application/xhtml+xml application/rss+xml application/atom+xml \
+    								image/x-icon image/svg+xml application/vnd.ms-fontobject application/x-font-ttf font/opentype
+  </IfModule>
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Задаем Expires заголовки (срок актуальности файла) (для лучшего кэширования)
+# ----------------------------------------------------------------------
+# Указываются заголовки с большим сроком "годности",
+# предполагается, что вы используете кэш на основе названий файлов (all.css?v001).
+# В дополнение, учтите, что старые прокси могут кэшировать не верно
+#   http://www.stevesouders.com/blog/2008/08/23/revving-filenames-dont-use-querystring/
+
+# Если вы не используете названия файлов для контроля версий, измените кэш для CSS и JS, например на
+# "access plus 1 week".
+<IfModule mod_expires.c>
+  ExpiresActive on
+
+# Задаем значение по умолчанию (для всех файлов)
+  ExpiresDefault                          "access plus 1 month"
+
+# cache.appcache нельзя кэшировать в FF 3.6 (спасибо Remy ~Introducing HTML5)
+  ExpiresByType text/cache-manifest       "access plus 0 seconds"
+
+# Ваш html документ
+  <FilesMatch \.(html|xhtml|xml|shtml|phtml|php|txt)$>
+    ExpiresDefault "access plus 0 seconds"
+  </FilesMatch>
+  ExpiresByType text/html                 "access plus 0 seconds"
+
+# Данные
+  ExpiresByType text/xml                  "access plus 0 seconds"
+  ExpiresByType application/xml           "access plus 0 seconds"
+  ExpiresByType application/json          "access plus 0 seconds"
+
+# Рассылка
+  ExpiresByType application/rss+xml       "access plus 1 hour"
+  ExpiresByType application/atom+xml      "access plus 1 hour"
+
+# Favicon (не может быть переименован)
+  <FilesMatch \.(ico)$>
+    ExpiresDefault "access plus 1 week"
+  </FilesMatch>
+  ExpiresByType image/x-icon              "access plus 1 week"
+
+# Медиа: изображения, видео, аудио
+  <FilesMatch \.(gif|png|jpg|jpeg|ogg|mp4|mkv|flv|swf|wmv|asf|asx|wma|wax|wmx|wm)$>
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+  ExpiresByType image/gif                 "access plus 1 month"
+  ExpiresByType image/png                 "access plus 1 month"
+  ExpiresByType image/jpeg                "access plus 1 month"
+  ExpiresByType video/ogg                 "access plus 1 month"
+  ExpiresByType audio/ogg                 "access plus 1 month"
+  ExpiresByType video/mp4                 "access plus 1 month"
+  ExpiresByType video/webm                "access plus 1 month"
+
+# HTC файлы (css3pie)
+  ExpiresByType text/x-component          "access plus 1 month"
+
+# Веб-шрифты
+  <FilesMatch \.(eot|ttf|otf|svg|woff)$>
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+  ExpiresByType application/x-font-ttf    "access plus 1 month"
+  ExpiresByType font/opentype             "access plus 1 month"
+  ExpiresByType application/x-font-woff   "access plus 1 month"
+  ExpiresByType image/svg+xml             "access plus 1 month"
+  ExpiresByType application/vnd.ms-fontobject "access plus 1 month"
+
+# CSS и JavaScript
+  <FilesMatch \.(css|js)$>
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+  ExpiresByType text/css                  "access plus 1 year"
+  ExpiresByType application/javascript    "access plus 1 year"
+
+# Статичные ресурсы
+  <FilesMatch \.(swf|pdf|doc|rtf|xls|ppt)$>
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+  ExpiresByType application/x-shockwave-flash "access plus 1 year"
+  ExpiresByType application/pdf               "access plus 1 year"
+  ExpiresByType application/msword            "access plus 1 year"
+  ExpiresByType application/rtf               "access plus 1 year"
+  ExpiresByType application/vnd.ms-excel      "access plus 1 year"
+  ExpiresByType application/vnd.ms-powerpoint "access plus 1 year"
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Удаление ETag + Cache-Control
+# ----------------------------------------------------------------------
+# FileETag None бывает не достаточно (для некоторых серверов).
+<IfModule mod_headers.c>
+  Header unset ETag
+  # Так как мы посылаем expires заголовки с большим сроком,
+  # мы не используем ETag для статичного контента.
+  #   http://developer.yahoo.com/performance/rules.html#etags
+  FileETag None
+
+  ## Браузер должен обновлять документ после заданного в секундах времени, которое задается в Cache-Control.
+  <FilesMatch \.(html|xhtml|xml|shtml|phtml|php|txt)$>
+    Header set Cache-Control "max-age=0, private, must-revalidate"
+  </FilesMatch>
+  <FilesMatch \.(ico|gif|png|jpg|jpeg|ogg|mp4|mkv|flv|swf|wmv|asf|asx|wma|wax|wmx|wm)$>
+    Header set Cache-Control "max-age=31556926, public"
+  </FilesMatch>
+  <FilesMatch \.(eot|ttf|otf|svg|woff)$>
+    Header set Cache-Control "max-age=31556926, public"
+  </FilesMatch>
+  <FilesMatch \.(css|js)$>
+    Header set Cache-Control "max-age=31556926, public"
+  </FilesMatch>
+  <FilesMatch \.(swf|pdf|doc|rtf|xls|ppt)$>
+    Header set Cache-Control "max-age=31556926, public"
+  </FilesMatch>
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Запрещаем мобильным провайдерам изменять заголовки сайта
+# ----------------------------------------------------------------------
+# Следующий заголовок предотвращает изменение заголовков сайта
+# при использовании 3G у некоторых Европейских провайдеров.
+# Это официальный 'костыль', предложенный O2 в UK.
+
+# <IfModule mod_headers.c>
+# Header set Cache-Control "no-transform"
+# </IfModule>
+
+
+# ----------------------------------------------------------------------
+# Предотвращаем мерцание экрана в старом IE при :hover эффекте
+# ----------------------------------------------------------------------
+# Следующие правила остановят мерцание экрана в IE при :hover,
+# в комбинации с "ExpiresByType" правилами для изображений (см. выше).
+# http://www.ibloomstudios.com/article3.php
+
+# BrowserMatch "MSIE" brokenvary=1
+# BrowserMatch "Mozilla/4.[0-9]{2}" brokenvary=1
+# BrowserMatch "Opera" !brokenvary
+# SetEnvIf brokenvary 1 force-no-vary
+
+
+# ----------------------------------------------------------------------
+# Устанавливаем Keep-Alive заголовок
+# ----------------------------------------------------------------------
+# Keep-Alive позволяет отсылать несколько запросов через одно
+# TCP-соединение. Будьте в курсе возможных недостатков этой опции.
+# Включайте, если вы раздаете много статичного контента.
+
+# <IfModule mod_headers.c>
+#   Header set Connection Keep-Alive
+# </IfModule>
+
+
+# ----------------------------------------------------------------------
+# Задействуем mod_rewrite
+# ----------------------------------------------------------------------
+# Включенный mod_rewrite необходим для дальнейших настроек.
+# FollowSymLinks должен быть включен.
+
+# Некоторые облачные хостинги требуют установленного RewriteBase:
+# http://www.rackspace.com/knowledge_center/frequently-asked-question/why-is-mod-rewrite-not-working-on-my-site
+# Если ваш сайт находится в поддиректории, используйте `RewriteBase /foo`,
+# где 'foo'  - ваша директория.
+
+# Если ваш веб хостинг запретил опцию FollowSymlinks, вам может понадобится
+# закомментировать ее и использовать `Options +SymLinksIfOwnerMatch`, но будьте в курсе
+# возможного изменения производительности: http://httpd.apache.org/docs/2.4/misc/perf-tuning.html#symlinks
+<IfModule mod_rewrite.c>
+  Options +FollowSymlinks
+# Options +SymLinksIfOwnerMatch
+  RewriteEngine On
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Убираем или оставляем "www." в начале ссылок
+# ----------------------------------------------------------------------
+# Одинаковый контент никогда не должен быть доступен по двум различным ссылкам -
+# особенно под различными доменами, так как это может вызывать проблемы с SEO -
+# дублированный контент. Поэтому вы должны четко выбрать один из вариантов.
+
+# По умолчанию, включен вариант 1 (без "www.").
+# http://no-www.org/faq.php?q=class_b
+
+# Если вы предпочитаете использовать вариант 2, просто закомментируйте вариант 1
+# и раскомментируйте вариант 2.
+
+# ВАЖНО: НИКОГДА НЕ ИСПОЛЬЗУЙТЕ ОБА ВАРИАНТА ОДНОВРЕМЕННО!
+
+# ----------------------------------------------------------------------
+# Вариант 1:
+# Замена "www.example.com -> example.com".
+<IfModule mod_rewrite.c>
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ http://%1%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Вариант 2:
+# Замена "example.com -> www.example.com".
+# Этот вариант не очень хорошая идея, если вы используете не виртуальные поддомены.
+
+# <IfModule mod_rewrite.c>
+#   RewriteCond %{HTTPS} !=on
+#   RewriteCond %{HTTP_HOST} !^www\..+$ [NC]
+#   RewriteRule ^ http://www.%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+# </IfModule>
+# ----------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------
+# Встроенное, основанное на названиях файлов, сбрасывание кэша
+# ----------------------------------------------------------------------
+# Если вы не используете билд-скрипт для управления версиями ваших файлов,
+# вы можете использовать данный вариант. Он перенаправляет запросы таким образом
+# `/css/style.20110203.css` -> `/css/style.css`.
+
+# Чтобы понять, почему это важно и лучше, чем ".css?v1231",
+# обратитесь к официальной документации `.htaccess`.
+
+# P.S. скорее всего, query строка в адресе к статичному файлу может повлиять на кэширование этого файла
+
+# <IfModule mod_rewrite.c>
+#   RewriteCond %{REQUEST_FILENAME} !-f
+#   RewriteCond %{REQUEST_FILENAME} !-d
+#   RewriteRule ^(.+)\.(\d+)\.(js|css|png|jpg|gif)$ $1.$3 [L]
+# </IfModule>
+
+
+# ----------------------------------------------------------------------
+# Отключаем предупреждения касательно SSL сертификата
+# ----------------------------------------------------------------------
+# Перенаправляем защищенные запросы правильным образом, например предотвращаем загрузку
+# https://www.example.com когда сертификат доступен только на https://secure.example.com
+
+# <IfModule mod_rewrite.c>
+#   RewriteCond %{SERVER_PORT} !^443
+#   RewriteRule ^ https://example-domain-please-change-me.com%{REQUEST_URI} [R=301,L]
+# </IfModule>
+
+
+# ----------------------------------------------------------------------
+# Предотвращаем 404 ошибки для несуществующих директорий
+# ----------------------------------------------------------------------
+# без -MultiViews, Apache будет выдавать 404, если запрашиваемого каталога не существует
+# http://www.webmasterworld.com/apache/3808792.htm
+Options -MultiViews
+
+
+# ----------------------------------------------------------------------
+# Своя страница 404
+# ----------------------------------------------------------------------
+# Свои страницы для ошибок 500 или 403 можно создать по аналогии.
+# Если ваш сайт находится в поддиректории, измените адрес соответствующим образом
+#    например ErrorDocument 404 /subdir/404.html
+ErrorDocument 404 /404.html
+
+
+# ----------------------------------------------------------------------
+# UTF-8 кодирование
+# ----------------------------------------------------------------------
+# Используем UTF-8 кодировку для всех переданных text/plain или text/html
+AddDefaultCharset utf-8
+
+# Принудительно выставляем UTF-8 для некоторых форматов
+AddCharset utf-8 .atom .css .js .json .rss .vtt .xml
+
+
+# ----------------------------------------------------------------------
+# Блокируем некоторые эксплоиты
+# ----------------------------------------------------------------------
+## Если у вас появились проблемы, закомментируйте данные правила
+<IfModule mod_rewrite.c>
+## Запрещаем доступ к .xml файлам (раскомментируйте для активации)
+#  <Files ~ "\.xml$">
+#    Order allow,deny
+#    Deny from all
+#    Satisfy all
+#  </Files>
+## [Конец] Запрещаем доступ к .xml файлам
+  RewriteCond %{QUERY_STRING} mosConfig_[a-zA-Z_]{1,21}(=|\%3D) [OR]
+# Блокируем возможность посылать base64_encode через URL
+  RewriteCond %{QUERY_STRING} base64_encode.*\(.*\) [OR]
+# Блокируем передачу тега <script> через URL
+  RewriteCond %{QUERY_STRING} (\<|%3C).*script.*(\>|%3E) [NC,OR]
+# Блокируем выставление переменной PHP GLOBALS через URL
+  RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
+# Блокируем возможность изменять переменную _REQUEST через URL
+  RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2})
+# Посылаем все заблокированные запросы на домашнюю страницу с ошибкой 403 Forbidden error!
+  RewriteRule ^(.*)$ index.php [F,L]
+</IfModule>
+########### [Конец] Блокируем некоторые эксплоиты
+
+
+# ----------------------------------------------------------------------
+# Еще немножко безопасности
+# ----------------------------------------------------------------------
+# Чтобы не показывать точную версию Apache в заголовках,
+# добавьте следующее в httpd.conf (это нельзя сделать в .htaccess)
+#    ServerTokens Prod
+#    ServerSignature Off
+
+
+# Опция "-Indexes" заблокирует возможность просматривать директории посетителями.
+# Нельзя позволять случайным пользователям просматривать служебные директории вашей CMS.
+<IfModule mod_autoindex.c>
+  Options -Indexes
+</IfModule>
+
+# Блокировка доступа к "скрытым" директориям и файлам, чьи названияначинаются с точки.
+# Такие директории могут использоваться системами контроля версий, например Subversion или Git.
+<IfModule mod_rewrite.c>
+  RewriteCond %{SCRIPT_FILENAME} -d [OR]
+  RewriteCond %{SCRIPT_FILENAME} -f
+  RewriteRule "(^|/)\." - [F]
+</IfModule>
+
+# Блокировка доступа к резервным копиям и исходникам. Некоторые файлы могут быть оставлены
+# текстовыми редакторами и предоставлять собой большую опасность, если они будут доступны каждому.
+<FilesMatch "(\.(bak|config|sql|fla|ini|log|sh|inc|swp|dist)|~)$">
+  Order allow,deny
+  Deny from all
+  Satisfy All
+</FilesMatch>
+
+# ----------------------------------------------------------------------
+# Некоторые настройки PHP
+# ----------------------------------------------------------------------
+<IfModule php5_module>
+  # Переименование названия сессии в cookie в что-нибудь другое, чем PHPSESSID
+  # php_value session.name sid
+
+  # Не показывать, что вы используете PHP
+  # Примечание: укажите это в php.ini, так как это не сработает через .htaccess
+  # php_flag expose_php Off
+
+  # Уровень детализации логов - логировать все ошибки
+  # php_value error_reporting -1
+
+  # Записывать ошибки в лог файл (off не отключает запись лога, а меняет место записи)
+  # php_flag log_errors On
+
+  # Не показывать ошибки в браузере (production - Off, development - On)
+  # php_flag display_errors Off
+
+  # Не показывать ошибки, возникающие во время запуска PHP (production - Off, development - On)
+  # php_flag display_startup_errors Off
+
+  # Не форматировать сообщения об ошибках
+  # Примечание: Поставьте 'On' для вывода var_dump() через xdebug
+  # php_flag html_errors Off
+
+  # Не заносить в журнал повторяющиеся ошибки
+  # php_flag ignore_repeated_errors Off
+
+  # Игнорировать источник ошибок при пропуске повторяющихся сообщений
+  # php_flag ignore_repeated_source Off
+
+  # Максимальный размер лога в байтах
+  # php_value log_errors_max_len 1024
+
+  # Строка, которая будет выводиться перед сообщением об ошибке (нельзя оставлять пустым, используйте пробел)
+  # php_value error_prepend_string " "
+
+  # Строка, которая будет выводиться после сообщения об ошибке (нельзя оставлять пустым, используйте пробел)
+  # php_value error_append_string " "
+
+  # Увеличиваем безопасность cookie, включив режим HTTP Only
+  php_value session.cookie_httponly true
+</IfModule>
+
+
+# ----------------------------------------------------------------------
+# Правила для Фреймворка / CMS (ниже - для Yii, при необходимости - заменить своим)
+# ----------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  # Если ваш сайт находится в папке, например "application", тогда изменение названия папки потребует изменения RewriteBase /[путь_к_сайту]
+  # RewriteBase /[путь_к_сайту(не обязательно)]
+  RewriteBase /
+  # Если директория или папка существует, отдавать напрямую
+  RewriteCond %{REQUEST_FILENAME} -s [OR]
+  RewriteCond %{REQUEST_FILENAME} -l [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  # иначе, перенаправлять на index.php 
+  RewriteRule ^.*$ - [NC,L]
+  RewriteRule ^.*$ index.php [NC,L]
+</IfModule>
